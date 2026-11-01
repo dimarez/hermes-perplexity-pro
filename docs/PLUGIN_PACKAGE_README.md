@@ -16,12 +16,15 @@ is **web-perplexity-pro**. Do not install a second copy alongside a previous
 manual web/perplexity-pro installation; preserve its profile auth/results and
 plan the code transition first.
 
-**CAUTION is expected.** This plugin needs local subprocesses and Linux descriptor
-checks. Read SECURITY.md and the source before deciding to trust it. If Hermes
-refuses, stop. Only after your explicit review may you repeat installation with
-`--force` for that specific revision; this confirms trust and is not a fix for a
-vulnerability. Never turn off scanning globally. `--ref` accepts an exact
-40-character commit SHA, not a version label. Nothing logs in automatically.
+The tested Hermes scanner reports five MEDIUM capability findings and no HIGH
+findings for 0.3.2. Its verdict is safe on that tested version, not a general
+security certificate. This plugin still needs local subprocesses and SDK downloads.
+Other scanner versions may request CAUTION. Read SECURITY.md and the source before
+deciding to trust it. If Hermes refuses, stop. Only after your explicit review may
+you repeat installation with `--force` for that specific revision; this confirms
+trust and is not a fix for a vulnerability. Never turn off scanning globally.
+`--ref` accepts an exact 40-character commit SHA, not a version label.
+Nothing logs in automatically.
 
 ## Separate SDK runtime
 
