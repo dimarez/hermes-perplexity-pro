@@ -1,0 +1,12 @@
+name: web-perplexity-pro
+version: 0.3.0
+description: "Perplexity web-session search backend and explicit async deep_research (unofficial web API)."
+author: Local integration
+kind: backend
+python_runtime: external
+provides_tools:
+  - deep_research
+provides_web_providers:
+  - perplexity-pro
+# SDK requirements are installed into the external runtime from the release's
+# requirements-worker.lock.txt, never into the shared Hermes environment.

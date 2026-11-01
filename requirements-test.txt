@@ -1,0 +1,14 @@
+# Only the isolated test environment, not plugin runtime dependencies.
+pytest==9.2.0
+PyYAML==6.0.3
+ruamel.yaml==0.19.1
+python-dotenv==1.2.4
+httpx==0.28.1
+rich==14.3.4
+croniter==6.2.4
+packaging==26.3
+psutil==7.2.2
+tenacity==9.2.1
+platformdirs==4.14.0
+# Native model_tools/executor imports in isolated integration tests only.
+requests==2.34.2

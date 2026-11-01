@@ -1,0 +1,2 @@
+# Pinned upstream revision inspected during implementation (MIT).
+perplexity-web-mcp-cli @ git+https://github.com/jacob-bd/perplexity-web-mcp.git@e34b5082d6c16283358d8a1e3cbd7fa61c35fc0d
