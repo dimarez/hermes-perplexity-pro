@@ -5,14 +5,13 @@ from .provider import PerplexityProProvider
 def register(ctx) -> None:
     from tools.registry import registry
     from .research_tool import SCHEMA, handle
-    import os
     import sqlite3
-    from pathlib import Path
+    from .research_jobs import storage_supported
     if registry.get_entry('deep_research') is not None:
         raise RuntimeError('deep_research name collision; replacement is not allowed')
     registration = ctx.register_tool(
         name='deep_research', toolset='perplexity-pro-research', schema=SCHEMA, handler=handle,
-        check_fn=lambda: (os.name == 'posix' and Path('/proc/self/fd').is_dir()
+        check_fn=lambda: (storage_supported()
                           and all(hasattr(sqlite3.Connection, name) for name in ('serialize', 'deserialize'))),
         requires_env=[], is_async=False, description=SCHEMA['description'], emoji='🔬', override=False,
     )

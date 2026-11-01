@@ -12,11 +12,11 @@ from hermes_constants import get_hermes_home
 from .session import SessionStore, StoreError, ChangeUncertain
 
 MESSAGES = {
-    'missing': (1, 'No profile session. Run hermes perplexity-pro login with the same HERMES_HOME/profile.'),
-    'present-unchecked': (0, 'Local profile session present; validity not checked. Use status --online.'),
-    'valid': (0, 'Session accepted by the SDK user probe; Pro entitlement and quota not checked.'),
-    'rejected': (1, 'Session rejected/expired. Run hermes perplexity-pro login with the same HERMES_HOME/profile.'),
-    'unreachable': (2, 'Session check unavailable; validity is unknown. Retry status --online later.'),
+    'missing': (1, 'Авторизован: нет локальной сессии в этом профиле. Выполни perplexity-pro login.'),
+    'present-unchecked': (0, 'Авторизован: не проверено. Локальная сессия есть; проверь status --online.'),
+    'valid': (0, 'Авторизован: да. Сессия принята проверкой SDK. Pro и квота не проверялись.'),
+    'rejected': (1, 'Авторизован: нет. Сессия не принята сервисом; повтори login для того же профиля.'),
+    'unreachable': (2, 'Авторизован: не удалось проверить. Сервис недоступен; это не подтверждение выхода.'),
     'saved': (0, 'Profile session saved privately. Use status --online to check validity.'),
     'logged-out': (0, 'Removed only this profile local session; no server revocation was requested.'),
     'already-logged-out': (0, 'No local session for this profile; no server revocation was requested.'),
@@ -32,7 +32,9 @@ MESSAGES = {
 
 def setup_parser(parser):
     sub = parser.add_subparsers(dest='perplexity_action', required=True)
-    sub.add_parser('login', help='Log in yourself in this local terminal (hidden email/OTP/TOTP).')
+    login = sub.add_parser('login', help='Local terminal login: visible email; codes hidden by default.')
+    login.add_argument('--show-codes', action='store_true', default=False,
+                       help='Echo OTP/TOTP in your terminal. Temporary codes are sensitive; terminal recording may capture them.')
     status = sub.add_parser('status', help='Check local session presence without network.')
     status.add_argument('--online', action='store_true', help='Explicit SDK validity probe; no search, no entitlement claim.')
     sub.add_parser('logout', help='Remove only this profile local session; not a server revoke.')
@@ -75,7 +77,7 @@ def preserve_terminal():
         os.close(descriptor)
 
 
-def run_action(action, online=False):
+def run_action(action, online=False, show_codes=False):
     home = get_hermes_home()
     try:
         if action == 'login' and not sys.stdin.isatty():
@@ -88,7 +90,10 @@ def run_action(action, online=False):
         else:
             python = home / 'plugin-runtimes/perplexity-pro/bin/python'
             with preserve_terminal() if action == 'login' else contextlib.nullcontext():
-                result = subprocess.run([str(python), str(Path(__file__).with_name('auth_worker.py')), action],
+                command = [str(python), str(Path(__file__).with_name('auth_worker.py')), action]
+                if action == 'login' and show_codes:
+                    command.append('--show-codes')
+                result = subprocess.run(command,
                                         env=child_environment(home), text=True, encoding='utf-8',
                                         stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
                                         timeout=600 if action == 'login' else 45, check=False)
@@ -114,4 +119,5 @@ def run_action(action, online=False):
 
 
 def handle_args(args):
-    raise SystemExit(run_action(args.perplexity_action, getattr(args, 'online', False)))
+    raise SystemExit(run_action(args.perplexity_action, getattr(args, 'online', False),
+                               show_codes=getattr(args, 'show_codes', False)))

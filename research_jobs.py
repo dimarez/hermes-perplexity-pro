@@ -9,6 +9,7 @@ from pathlib import Path
 import re
 import sqlite3
 import stat
+import sys
 import time
 import uuid
 
@@ -18,6 +19,22 @@ ACTIVE = ('queued', 'running')
 
 class JobError(Exception):
     """Static machine code only. Never render a local/remote exception."""
+
+
+def storage_supported():
+    """Check actual Linux file/locking primitives without process-FS access."""
+    if os.name != 'posix' or sys.platform != 'linux':
+        return False
+    if not all(hasattr(os, name) for name in ('O_DIRECTORY', 'O_NOFOLLOW', 'O_NONBLOCK')):
+        return False
+    directory_functions = getattr(os, 'supports_dir_fd', ())
+    if not all(fn in directory_functions for fn in (os.open, os.mkdir, os.stat, os.unlink)):
+        return False
+    try:
+        import fcntl
+    except ImportError:
+        return False
+    return hasattr(fcntl, 'flock')
 
 
 def owner_key(owner):
@@ -40,7 +57,7 @@ class JobStore:
     def _directory(self):
         descriptors = []
         try:
-            if os.name != 'posix' or not self.home.is_absolute() or not Path('/proc/self/fd').is_dir():
+            if not storage_supported() or not self.home.is_absolute():
                 raise JobError('storage')
             flags = os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW
             fd = os.open(self.home, flags)
@@ -91,6 +108,8 @@ class JobStore:
         # Never let SQLite's VFS resolve an untrusted filename: deserialize bytes
         # from an O_NOFOLLOW-pinned fd into memory, under a process-wide file lock,
         # and atomically publish the committed SQLite image back to this directory.
+        if not storage_supported():
+            raise JobError('storage')
         import fcntl
         if not all(hasattr(sqlite3.Connection, name) for name in ('serialize', 'deserialize')):
             raise JobError('dependency')
