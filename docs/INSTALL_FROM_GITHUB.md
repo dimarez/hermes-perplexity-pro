@@ -1,92 +1,79 @@
-# Установка из GitHub
+# Установка 0.3.1 из GitHub
 
-Репозиторий `dimarez/hermes-perplexity-pro` — источник установки плагина.
-Native plugin находится в подкаталоге **plugin/**, а не в корне репозитория.
-Поэтому identifier для Hermes: **dimarez/hermes-perplexity-pro/plugin**.
-Имя установленного плагина из manifest: **web-perplexity-pro**.
+Ветка по умолчанию **plugin** — минимальный готовый native-пакет с manifest в
+корне. Ветка **main** — исходники, тесты, диагностика и генератор этого пакета.
+Правильный identifier теперь **dimarez/hermes-perplexity-pro**, без `/plugin`.
+Имя после установки — **web-perplexity-pro**.
 
-## Требования и границы
+## Перед установкой
 
-- Linux, Git, uv и Python 3.13; Hermes с API из указанного в README reference.
-- Существующий целевой профиль Hermes. Выбирай его явно во всех командах.
-- SDK ставится только в отдельный профильный runtime, не в Python самого Hermes.
-- Не устанавливай второй экземпляр, если уже используешь ручную установку
-  `web/perplexity-pro`: сначала согласуй перенос кода, сохранив session store.
-- Установка и включение не выполняют login и не подтверждают работу Perplexity.
-  Они могут скачивать открытые Git/Python-зависимости, но не расходуют research-квоту.
+Нужны Linux, Git, uv, Python 3.13 и совместимый Hermes. Выбери существующий
+целевой профиль явно. Не ставь второй экземпляр рядом со старой ручной
+установкой `web/perplexity-pro`: сначала спланируй перенос кода, сохранив
+профильные session/results. SDK-runtime остаётся отдельным от Python Hermes.
 
-## Первичная установка
+Ниже пример для стандартного default. Для named profile используй его имя и
+соответствующий HERMES_HOME во всех шагах. Custom home задаётся явно.
 
-Выбери новый каталог checkout; не перезаписывай существующий проект.
-Задай PROFILE как default или имя уже существующего профиля.
-Пример предполагает стандартный root `$HOME/.hermes`; custom HERMES_HOME
-нужно подставить явно, не смешивая его с другим профилем.
+```bash
+hermes -p default plugins install dimarez/hermes-perplexity-pro --no-enable
+```
+
+Для воспроизводимости добавь `--ref` с точным 40-символьным SHA установочной
+ветки plugin, не SHA исходников main. Флаг принимает commit, а не `v0.3.1`.
+
+## CAUTION не скрывается
+
+В минимальном пакете нет dev-тестов и диагностических скриптов. Однако остаются
+необходимые возможности: отдельные worker-процессы, Linux descriptor checks и
+скачивание SDK-зависимостей. Сканер вправе запросить доверие; это не обещание
+нулевого риска. См. SECURITY.md внутри пакета и исходный код.
+
+Если installer блокирует установку, остановись. Только после осознанного решения
+доверять конкретному коммиту можно повторить команду с `--force`. Не отключай
+сканирование глобально, не используй этот флаг автоматически или как способ
+починить уязвимость. Разрешение на тест во временном профиле не разрешает
+рабочую установку, login или live-запросы.
+
+## Отдельный SDK-runtime после успешного скачивания кода
 
 ```bash
 set -e
-PROFILE=default
-ROOT_HOME="$HOME/.hermes"
-case "$PROFILE" in
-  default) PROFILE_HOME="$ROOT_HOME" ;;
-  *) PROFILE_HOME="$ROOT_HOME/profiles/$PROFILE" ;;
-esac
-test -d "$PROFILE_HOME"
-
-CHECKOUT="$HOME/Develop/hermes-perplexity-pro"
-test ! -e "$CHECKOUT" && test ! -L "$CHECKOUT"
-git clone https://github.com/dimarez/hermes-perplexity-pro.git "$CHECKOUT"
-cd "$CHECKOUT"
-REV="$(git rev-parse HEAD)"
-
-# Отдельная проверка совместимости — см. README, до установки на working host.
-# Сначала скачиваем native plugin без активации; устанавливается именно этот commit.
-HERMES_HOME="$PROFILE_HOME" hermes -p "$PROFILE" plugins install \
-  dimarez/hermes-perplexity-pro/plugin --ref "$REV" --no-enable
-
+PROFILE_HOME="$HOME/.hermes"
+PLUGIN="$PROFILE_HOME/plugins/web-perplexity-pro"
 RUNTIME="$PROFILE_HOME/plugin-runtimes/perplexity-pro"
+test -d "$PROFILE_HOME"
+test -f "$PLUGIN/plugin.yaml"
 test ! -e "$RUNTIME" && test ! -L "$RUNTIME"
 mkdir -p "$PROFILE_HOME/plugin-runtimes"
 uv venv --python 3.13 "$RUNTIME"
-uv pip install --python "$RUNTIME/bin/python" -r "$CHECKOUT/requirements-worker.lock.txt"
+uv pip install --python "$RUNTIME/bin/python" -r "$PLUGIN/requirements-worker.lock.txt"
 uv pip check --python "$RUNTIME/bin/python"
-"$RUNTIME/bin/python" "$CHECKOUT/scripts/check_sdk.py"
-
-HERMES_HOME="$PROFILE_HOME" hermes -p "$PROFILE" plugins doctor \
-  "$PROFILE_HOME/plugins/web-perplexity-pro" --ci
-HERMES_HOME="$PROFILE_HOME" hermes -p "$PROFILE" plugins enable web-perplexity-pro
-HERMES_HOME="$PROFILE_HOME" hermes -p "$PROFILE" perplexity-pro --help
+hermes -p default plugins doctor "$PLUGIN" --ci
+hermes -p default plugins enable web-perplexity-pro
+hermes -p default perplexity-pro --help
 ```
 
-Если native security/dependency gate отказывает — остановись и разберись
-с сообщением. Не добавляй `--force` и не отключай проверки автоматически.
-При ошибке любой команды не выполняй последующие шаги.
-При существующем runtime/плагине используй проверенный сценарий обновления,
-а не удаление каталогов и повторный login.
+При ошибке любой команды не продолжай. Если runtime уже существует, проверь
+его версию/lock и используй сценарий обновления, не удаление каталогов.
+Обновление не должно стирать session store. Не ставь SDK в managed Hermes PM.
 
-## Подключение поиска и авторизация
+## Подключение и login — отдельные действия
 
-Сначала сохрани прежние значения и факт отсутствия настроек для rollback.
-Выбор backend — отдельное намеренное изменение профиля:
+Сохрани прежнее значение web.search_backend и факт отсутствия ключа для rollback.
+Только затем выбери backend=perplexity-pro. Для deep_research при необходимости
+включи toolset perplexity-pro-research через `hermes -p default tools`.
+Пользователь сам выполняет `hermes -p default perplexity-pro login` локально в
+интерактивном терминале; tokens/email/OTP через чат не передаются.
+`status --online` и настоящие исследования требуют отдельного решения.
+Автоматического перезапуска gateway, повторного research или уведомлений нет.
 
-```bash
-HERMES_HOME="$PROFILE_HOME" hermes -p "$PROFILE" config get web.search_backend
-HERMES_HOME="$PROFILE_HOME" hermes -p "$PROFILE" config set web.search_backend perplexity-pro
+## Разработка и публикация
 
-# Только сам пользователь в локальном интерактивном терминале:
-HERMES_HOME="$PROFILE_HOME" hermes -p "$PROFILE" perplexity-pro login
-HERMES_HOME="$PROFILE_HOME" hermes -p "$PROFILE" perplexity-pro status --online
-```
-
-Для `deep_research` включи toolset `perplexity-pro-research` через
-`hermes -p "$PROFILE" tools`, если он не входит в используемый набор.
-Новый login не нужен при обновлении с 0.2.0, если профильная сессия ещё валидна.
-Не вводи токены/OTP/email через чат. Не перезапускай gateway автоматически.
-Полная семантика, rollback и ограничения — в README и ASYNC_RESEARCH.md.
-
-## Что не публикуется в Git
-
-В Git включены исходники, тесты, фиксированные зависимости и Markdown-документация.
-Окружения, `.env`, credentials/session stores, приватные research-результаты,
-архивы dist и машинные JSON/log/HTML-диагностики исключены через .gitignore.
-`docs/verification.json` и отчёты dist — локально генерируемые доказательства;
-их отсутствие в checkout не означает наличие результатов live-проверки.
+Чтобы получить тесты и генератор, клонируй репозиторий с `--branch main`.
+`python scripts/build_install_tree.py` генерирует dist/install из явного списка
+runtime-файлов и безопасных сопроводительных файлов. SHA256SUMS позволяет
+проверить байты. В установочной ветке не должно быть tests/scripts/docs/venv,
+credentials, частных отчётов или машинной диагностики. Сборка не обфусцирует код
+и не меняет guard-политику Hermes. Изменения в plugin делаются через main и
+повторную генерацию, не независимыми правками двух веток.

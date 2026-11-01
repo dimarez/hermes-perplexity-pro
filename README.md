@@ -1,4 +1,4 @@
-# hermes-perplexity-pro 0.3.0
+# hermes-perplexity-pro 0.3.1
 
 Backend **`perplexity-pro` для штатного Hermes `web_search`**, отдельный
 асинхронный инструмент **`deep_research`** и локальные команды управления
@@ -11,8 +11,11 @@ coder плагин при разработке **не устанавливалс
 Репозиторий предназначен для установки плагина. Полная последовательность с
 отдельным SDK-runtime и явным целевым профилем:
 [INSTALL_FROM_GITHUB.md](docs/INSTALL_FROM_GITHUB.md).
-Native identifier — `dimarez/hermes-perplexity-pro/plugin`; имя установленного
-плагина — `web-perplexity-pro`. Не устанавливай второй экземпляр поверх прежней
+Native identifier — `dimarez/hermes-perplexity-pro`; имя установленного плагина —
+`web-perplexity-pro`. Ветка по умолчанию `plugin` содержит только установочный
+пакет; эта ветка `main` содержит исходники, тесты и генератор пакета.
+Старый identifier с `/plugin` применим только к прежнему source-layout, не к
+новой установочной ветке. Не устанавливай второй экземпляр поверх прежней
 ручной установки `web/perplexity-pro` без согласованного сценария перехода.
 
 ## Асинхронный `deep_research`
@@ -228,10 +231,10 @@ Docker `/workspace/develop/hermes-perplexity-pro`. Сначала распаку
 
 ```bash
 PROJECT=/home/hermes/Develop/hermes-perplexity-pro
-RELEASES="$HOME/.local/share/hermes-perplexity-pro/releases/0.3.0"
+RELEASES="$HOME/.local/share/hermes-perplexity-pro/releases/0.3.1"
 test ! -e "$RELEASES" && test ! -L "$RELEASES"   # иначе остановись
 mkdir -p "$RELEASES"
-unzip -q "$PROJECT/dist/hermes-perplexity-pro-0.3.0.zip" -d "$RELEASES"
+unzip -q "$PROJECT/dist/hermes-perplexity-pro-0.3.1.zip" -d "$RELEASES"
 RELEASE="$RELEASES/hermes-perplexity-pro"
 
 # Явный main/default. Для существующего named profile поменяй только PROFILE.
@@ -279,7 +282,7 @@ HERMES_HOME="$PROFILE_HOME" hermes -p "$PROFILE" perplexity-pro status --online
 не используй raw pip/uv в Hermes PM. Эти команды не меняют `web.extract_backend`,
 не перезапускают gateway; проверяй из нового клиентского процесса.
 
-## Обновление 0.1.0 → 0.3.0 и последующие обновления
+## Обновление 0.1.0 → 0.3.1 и последующие обновления
 
 Используй новые распакованные bytes и те же явно выбранные PROFILE/PROFILE_HOME,
 PLUGIN_DIR/RUNTIME. Рабочие процессы не перезапускаются этим сценарием.
@@ -287,8 +290,8 @@ PLUGIN_DIR/RUNTIME. Рабочие процессы не перезапуска�
 ```bash
 # После import-only compatibility probe из предыдущего раздела:
 # Стадия и backups ВНЕ discovery-root plugins/, иначе может загрузиться дубликат.
-STAGE="$PROFILE_HOME/plugin-staging/perplexity-pro-0.3.0"
-BACKUP="$PROFILE_HOME/plugin-backups/perplexity-pro-before-0.3.0"
+STAGE="$PROFILE_HOME/plugin-staging/perplexity-pro-0.3.1"
+BACKUP="$PROFILE_HOME/plugin-backups/perplexity-pro-before-0.3.1"
 test ! -e "$STAGE" && test ! -L "$STAGE"
 test ! -e "$BACKUP" && test ! -L "$BACKUP"
 test -d "$PLUGIN_DIR" && test ! -L "$PLUGIN_DIR"
@@ -363,7 +366,7 @@ PYTHONPATH=/home/hermes/Develop/hermes-agent-reference PYTHONDONTWRITEBYTECODE=1
 .venv/bin/python scripts/build_release.py
 PYTHONPATH=/home/hermes/Develop/hermes-agent-reference PYTHONDONTWRITEBYTECODE=1 \
   .venv/bin/python scripts/portable_check.py \
-    --archive dist/hermes-perplexity-pro-0.3.0.zip --report dist/verification-final.json
+    --archive dist/hermes-perplexity-pro-0.3.1.zip --report dist/verification-final.json
 .venv/bin/python scripts/attest_release.py
 ```
 
