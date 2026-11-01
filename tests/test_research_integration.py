@@ -80,6 +80,23 @@ def test_native_async_pipeline_saves_full_report_and_cleans_process(monkeypatch,
         assert all(process.returncode == 0 for process in processes)
 
 
+def test_native_research_availability_does_not_probe_process_filesystem(monkeypatch):
+    from hermes_cli.plugin_dev import _doctor_runtime
+    from tools.registry import registry
+    original = Path.is_dir
+    process_path_checks = []
+    def without_process_filesystem(path):
+        if path.parts[:2] == ('/', 'proc'):
+            process_path_checks.append(str(path))
+            return False
+        return original(path)
+    monkeypatch.setattr(Path, 'is_dir', without_process_filesystem)
+    with _doctor_runtime(PLUGIN):
+        entry = registry.get_entry('deep_research')
+        assert entry is not None and entry.check_fn() is True
+    assert process_path_checks == []
+
+
 @pytest.mark.parametrize('toolset', ['perplexity-pro-research', 'foreign-research'])
 def test_real_plugin_refuses_occupied_name_even_in_same_toolset(toolset):
     from hermes_cli.plugin_dev import doctor_plugin

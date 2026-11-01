@@ -17,6 +17,52 @@ def jobs_module():
     return module
 
 
+def test_storage_lifecycle_does_not_require_process_filesystem(tmp_path, monkeypatch):
+    m = jobs_module()
+    original = Path.is_dir
+    process_path_checks = []
+    def without_process_filesystem(path):
+        if path.parts[:2] == ('/', 'proc'):
+            process_path_checks.append(str(path))
+            return False
+        return original(path)
+    monkeypatch.setattr(Path, 'is_dir', without_process_filesystem)
+    store = m.JobStore(tmp_path)
+    job, created = store.create('owner', 'offline no-process-filesystem', 900, 'no-proc')
+    assert created
+    assert store.claim(job['id'])['status'] == 'running'
+    assert store.finish(job['id'], {'status': 'completed', 'full_report': True, 'report': 'offline fixture'})
+    assert store.result(job['id'], 'owner')['report'] == 'offline fixture'
+    assert process_path_checks == []
+
+
+@pytest.mark.parametrize('missing', ['O_NOFOLLOW', 'O_DIRECTORY', 'O_NONBLOCK', 'supports_dir_fd'])
+def test_missing_storage_capability_refuses_before_filesystem_changes(tmp_path, monkeypatch, missing):
+    m = jobs_module()
+    monkeypatch.delattr(m.os, missing)
+    with pytest.raises(m.JobError, match='storage'):
+        m.JobStore(tmp_path).create('owner', 'offline missing capability', 900, 'capability')
+    assert not (tmp_path / 'plugin-results').exists()
+
+
+@pytest.mark.parametrize('platform', ['darwin', 'win32'])
+def test_non_linux_storage_is_refused_without_creating_files(tmp_path, monkeypatch, platform):
+    m = jobs_module()
+    monkeypatch.setattr(m.sys, 'platform', platform)
+    with pytest.raises(m.JobError, match='storage'):
+        m.JobStore(tmp_path).create('owner', 'offline unsupported', 900, 'platform')
+    assert not (tmp_path / 'plugin-results').exists()
+
+
+def test_missing_lock_primitive_refuses_before_creating_files(tmp_path, monkeypatch):
+    import fcntl
+    m = jobs_module()
+    monkeypatch.delattr(fcntl, 'flock')
+    with pytest.raises(m.JobError, match='storage'):
+        m.JobStore(tmp_path).create('owner', 'offline missing lock', 900, 'lock')
+    assert not (tmp_path / 'plugin-results').exists()
+
+
 def test_create_job_is_persistent_idempotent_and_session_owned(tmp_path):
     m = jobs_module()
     store = m.JobStore(tmp_path)

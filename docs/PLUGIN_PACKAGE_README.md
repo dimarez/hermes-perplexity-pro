@@ -1,4 +1,4 @@
-# hermes-perplexity-pro 0.3.1 — install package
+# hermes-perplexity-pro 0.3.2 — install package
 
 This branch contains only the native Hermes plugin, its fixed external SDK
 requirements, license, checksums and security notes. Development sources and
@@ -50,7 +50,13 @@ it. Do not install SDK requirements into Hermes' managed Python environment.
 Choose search_backend=perplexity-pro intentionally after saving the old setting.
 Enable toolset **perplexity-pro-research** in the desired tools selection.
 Login is performed only by the user in a local interactive terminal:
-`hermes -p default perplexity-pro login`. Never send tokens or OTP through chat.
+`hermes -p default perplexity-pro login`. Email input is visible. OTP/TOTP stay
+hidden by default; `login --show-codes` explicitly enables terminal-only echo.
+Temporary codes are sensitive until expiry and can be captured by terminal/screen
+recording. No values are added to argv, SDK logs or command-result stdout.
+Never send tokens or OTP through chat. The online status now explicitly says
+whether authorization was accepted, rejected or could not be checked; local-only
+status does not pretend to validate the service session.
 
 The new tool is **deep_research**, with start/status/result. It does not replace
 web_search/web_extract. No automatic completion notifications, automatic retries,

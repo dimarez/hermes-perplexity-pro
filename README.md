@@ -1,4 +1,4 @@
-# hermes-perplexity-pro 0.3.1
+# hermes-perplexity-pro 0.3.2
 
 Backend **`perplexity-pro` для штатного Hermes `web_search`**, отдельный
 асинхронный инструмент **`deep_research`** и локальные команды управления
@@ -69,8 +69,10 @@ Native identifier — `dimarez/hermes-perplexity-pro`; имя установле
   переживания рестарта нет.** После start запроси status/result следующим
   сообщением; агент не должен busy-poll. SQLite сохраняется, но наличие записи
   не доказывает, что worker жив. Не обновляй код/sidecar во время активного job.
-- Research storage требует **Linux с `/proc/self/fd`**. Отдельный процесс —
-  изоляция SDK/output, не sandbox от недоверенного кода того же Unix user.
+- Research storage требует **Linux, descriptor-relative файловых API, безопасных
+  open-флагов и SQLite serialize/deserialize**. Наличие process filesystem не
+  требуется. Отдельный процесс — изоляция SDK/output, не sandbox от кода того
+  же Unix user.
 
 Полный контракт и границы: `docs/ASYNC_RESEARCH.md`. Настоящие Perplexity research,
 квота, Pro entitlement и качество отчётов не проверялись. Upgrade с 0.2.0 сохраняет
@@ -106,11 +108,14 @@ HERMES_HOME=/absolute/custom/hermes-home hermes -p default perplexity-pro status
 
 ### Login: только сам пользователь в локальном терминале
 
-Email, email OTP и при необходимости TOTP вводятся **скрыто** в локальном
-терминале. Никаких `--email/--code/--token`, аргументов с секретами или ввода через
-чат/задачу. Pipe/non-TTY отвергается до сети; если терминал не умеет выключить
-echo, вход прерывается, а не переключается на видимый ввод. Ctrl-C/Ctrl-D отменяют
-вход. На ввод даётся до 10 минут, HTTP auth-вызовы имеют SDK timeout 15 секунд.
+Email вводится видимо в своём локальном терминале. Email OTP и TOTP по умолчанию
+скрыты; для осознанного показа кодов только в терминале есть
+`hermes -p default perplexity-pro login --show-codes`. Временные коды чувствительны
+до истечения срока и могут попасть в запись терминала; не используй этот флаг
+при демонстрации экрана. Никаких `--email/--code/--token`, аргументов со значениями
+секретов или ввода через чат/задачу. Pipe/non-TTY отвергается до сети; если скрытый
+ввод не может отключить echo, он прерывается, а не становится видимым самопроизвольно.
+Ctrl-C/Ctrl-D отменяют вход. На ввод даётся до 10 минут, HTTP auth-вызовы имеют SDK timeout 15 секунд.
 Родитель восстанавливает настройки TTY и сбрасывает незавершённый ввод даже
 после timeout/SIGKILL дочернего процесса; это проверено на отдельном PTY без login/сети.
 
@@ -231,10 +236,10 @@ Docker `/workspace/develop/hermes-perplexity-pro`. Сначала распаку
 
 ```bash
 PROJECT=/home/hermes/Develop/hermes-perplexity-pro
-RELEASES="$HOME/.local/share/hermes-perplexity-pro/releases/0.3.1"
+RELEASES="$HOME/.local/share/hermes-perplexity-pro/releases/0.3.2"
 test ! -e "$RELEASES" && test ! -L "$RELEASES"   # иначе остановись
 mkdir -p "$RELEASES"
-unzip -q "$PROJECT/dist/hermes-perplexity-pro-0.3.1.zip" -d "$RELEASES"
+unzip -q "$PROJECT/dist/hermes-perplexity-pro-0.3.2.zip" -d "$RELEASES"
 RELEASE="$RELEASES/hermes-perplexity-pro"
 
 # Явный main/default. Для существующего named profile поменяй только PROFILE.
@@ -282,7 +287,7 @@ HERMES_HOME="$PROFILE_HOME" hermes -p "$PROFILE" perplexity-pro status --online
 не используй raw pip/uv в Hermes PM. Эти команды не меняют `web.extract_backend`,
 не перезапускают gateway; проверяй из нового клиентского процесса.
 
-## Обновление 0.1.0 → 0.3.1 и последующие обновления
+## Обновление 0.1.0 → 0.3.2 и последующие обновления
 
 Используй новые распакованные bytes и те же явно выбранные PROFILE/PROFILE_HOME,
 PLUGIN_DIR/RUNTIME. Рабочие процессы не перезапускаются этим сценарием.
@@ -290,8 +295,8 @@ PLUGIN_DIR/RUNTIME. Рабочие процессы не перезапуска�
 ```bash
 # После import-only compatibility probe из предыдущего раздела:
 # Стадия и backups ВНЕ discovery-root plugins/, иначе может загрузиться дубликат.
-STAGE="$PROFILE_HOME/plugin-staging/perplexity-pro-0.3.1"
-BACKUP="$PROFILE_HOME/plugin-backups/perplexity-pro-before-0.3.1"
+STAGE="$PROFILE_HOME/plugin-staging/perplexity-pro-0.3.2"
+BACKUP="$PROFILE_HOME/plugin-backups/perplexity-pro-before-0.3.2"
 test ! -e "$STAGE" && test ! -L "$STAGE"
 test ! -e "$BACKUP" && test ! -L "$BACKUP"
 test -d "$PLUGIN_DIR" && test ! -L "$PLUGIN_DIR"
@@ -366,7 +371,7 @@ PYTHONPATH=/home/hermes/Develop/hermes-agent-reference PYTHONDONTWRITEBYTECODE=1
 .venv/bin/python scripts/build_release.py
 PYTHONPATH=/home/hermes/Develop/hermes-agent-reference PYTHONDONTWRITEBYTECODE=1 \
   .venv/bin/python scripts/portable_check.py \
-    --archive dist/hermes-perplexity-pro-0.3.1.zip --report dist/verification-final.json
+    --archive dist/hermes-perplexity-pro-0.3.2.zip --report dist/verification-final.json
 .venv/bin/python scripts/attest_release.py
 ```
 

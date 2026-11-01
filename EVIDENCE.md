@@ -1,4 +1,10 @@
-# Evidence and limits — hermes-perplexity-pro 0.3.0
+# Historical evidence and limits — hermes-perplexity-pro 0.3.0
+
+The record below describes the original 0.3.0 implementation. Current 0.3.2 changes
+and acceptance criteria are in `docs/PACKAGING_0.3.2.md`; fresh local command output
+is in the generated `docs/verification.json`, and publication evidence is recorded
+separately. In 0.3.2 auth UI/status text and the storage availability gate change;
+do not apply the historical unchanged-auth claim below to this newer diff.
 
 Date: 2026-11-01. Local development and isolated offline acceptance only.
 

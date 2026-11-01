@@ -30,7 +30,7 @@ def test_minimal_tree_has_root_manifest_and_exact_runtime_bytes(tmp_path):
     for row in (output / 'SHA256SUMS').read_text().splitlines():
         digest, name = row.split('  ', 1)
         assert hashlib.sha256((output / name).read_bytes()).hexdigest() == digest
-    assert 'version: 0.3.1' in (output / 'plugin.yaml').read_text()
+    assert 'version: 0.3.2' in (output / 'plugin.yaml').read_text()
 
 
 def source_fixture(tmp_path):

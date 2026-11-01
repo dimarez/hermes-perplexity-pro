@@ -1,4 +1,4 @@
-# Установка 0.3.1 из GitHub
+# Установка 0.3.2 из GitHub
 
 Ветка по умолчанию **plugin** — минимальный готовый native-пакет с manifest в
 корне. Ветка **main** — исходники, тесты, диагностика и генератор этого пакета.
@@ -20,7 +20,7 @@ hermes -p default plugins install dimarez/hermes-perplexity-pro --no-enable
 ```
 
 Для воспроизводимости добавь `--ref` с точным 40-символьным SHA установочной
-ветки plugin, не SHA исходников main. Флаг принимает commit, а не `v0.3.1`.
+ветки plugin, не SHA исходников main. Флаг принимает commit, а не `v0.3.2`.
 
 ## CAUTION не скрывается
 
@@ -67,6 +67,14 @@ hermes -p default perplexity-pro --help
 интерактивном терминале; tokens/email/OTP через чат не передаются.
 `status --online` и настоящие исследования требуют отдельного решения.
 Автоматического перезапуска gateway, повторного research или уведомлений нет.
+
+Local and online status in 0.3.2 show explicit Russian authorization labels while
+retaining the same machine prefixes and exit codes. Email is echoed locally; use
+`hermes -p default perplexity-pro login --show-codes` only if you deliberately want
+OTP/TOTP echoed as well. Temporary codes are sensitive and terminal recording may
+capture them. Default code entry remains hidden; no secret value is accepted in
+command-line arguments. A previously saved valid session survives a code update:
+login is not automatically required again.
 
 ## Разработка и публикация
 

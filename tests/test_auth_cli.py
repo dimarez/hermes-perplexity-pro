@@ -155,6 +155,26 @@ def test_cli_subprocess_error_paths_never_echo_output(monkeypatch, tmp_path, cap
     assert 'SECRET' not in output
 
 
+@pytest.mark.parametrize('state,label,expected', [
+    ('valid', 'Авторизован: да', 0),
+    ('rejected', 'Авторизован: нет', 1),
+    ('unreachable', 'Авторизован: не удалось проверить', 2),
+    ('present-unchecked', 'Авторизован: не проверено', 0),
+    ('missing', 'Авторизован: нет локальной сессии', 1),
+])
+def test_status_explicitly_labels_authorization_without_changing_codes(monkeypatch, tmp_path, capfd, state, label, expected):
+    m = auth_cli_module()
+    monkeypatch.setattr(m, 'get_hermes_home', lambda: tmp_path)
+    if state != 'missing':
+        session_module().SessionStore(tmp_path).save('SECRET_PROFILE_FIXTURE')
+    monkeypatch.setattr(m.subprocess, 'run', lambda *a, **k: subprocess.CompletedProcess([], 0, state))
+    online = state in ('valid', 'rejected', 'unreachable')
+    assert m.run_action('status', online=online) == expected
+    output = ''.join(capfd.readouterr())
+    assert f'perplexity-pro/{state}:' in output and label in output
+    assert 'SECRET' not in output
+
+
 def test_auth_cli_changes_only_child_environment(monkeypatch, tmp_path):
     m = auth_cli_module()
     monkeypatch.setattr(m, 'get_hermes_home', lambda: tmp_path)
@@ -211,6 +231,33 @@ def test_login_restores_terminal_after_child_termination(monkeypatch, tmp_path, 
         termios.tcsetattr(slave, termios.TCSANOW, before)
         os.close(slave)
         os.close(master)
+
+
+def test_show_codes_flag_is_documented_but_rejects_unattended_login(installed):
+    _, env = installed
+    help_result = cli(env, 'login', '--help')
+    assert help_result.returncode == 0 and '--show-codes' in help_result.stdout
+    result = cli(env, 'login', '--show-codes')
+    assert result.returncode != 0 and 'terminal-required' in result.stdout
+
+
+def test_login_show_codes_option_reaches_only_child_argv(monkeypatch, tmp_path, capfd):
+    import contextlib
+    from types import SimpleNamespace
+    m = auth_cli_module()
+    monkeypatch.setattr(m, 'get_hermes_home', lambda: tmp_path)
+    monkeypatch.setattr(m.sys, 'stdin', SimpleNamespace(isatty=lambda: True))
+    monkeypatch.setattr(m, 'preserve_terminal', contextlib.nullcontext)
+    commands = []
+    def child(command, **kwargs):
+        commands.append(command)
+        return subprocess.CompletedProcess(command, 0, 'saved')
+    monkeypatch.setattr(m.subprocess, 'run', child)
+    with pytest.raises(SystemExit) as exit_info:
+        m.handle_args(SimpleNamespace(perplexity_action='login', online=False, show_codes=True))
+    assert exit_info.value.code == 0
+    assert commands[0][-2:] == ['login', '--show-codes']
+    assert 'SECRET' not in ''.join(capfd.readouterr())
 
 
 def test_login_refuses_unattended_input_without_network(installed):

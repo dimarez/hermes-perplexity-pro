@@ -55,6 +55,134 @@ class AuthNetwork:
         self.closed = True
 
 
+@pytest.mark.parametrize('show_codes', [False, True])
+def test_default_and_optin_login_route_email_and_codes(monkeypatch, tmp_path, capfd, show_codes):
+    m = auth_module()
+    from perplexity_web_mcp import auth
+    class TotpNetwork(AuthNetwork):
+        def get(self, url, **kwargs):
+            if url.endswith('/callback-fixture'):
+                return Response(302, headers={'Location': '/auth/totp-challenge?token=SECRET_CHALLENGE'})
+            return super().get(url, **kwargs)
+        def post(self, url, **kwargs):
+            if '/totp-challenge/verify' in url:
+                self.cookies['__Secure-next-auth.session-token'] = 'SECRET_SESSION_FIXTURE'
+                return Response()
+            return super().post(url, **kwargs)
+    network = TotpNetwork()
+    monkeypatch.setattr(auth, 'Session', lambda **kw: network)
+    visible, hidden = [], []
+    def email_input(label):
+        visible.append(label)
+        return 'fixture@example.invalid' if label == 'Perplexity email: ' else '123456'
+    def secret_input(label):
+        hidden.append(label)
+        return 'fixture@example.invalid' if 'email' in label.lower() and 'verification' not in label.lower() else '123456'
+    monkeypatch.setattr(m, 'visible_prompt', email_input, raising=False)
+    monkeypatch.setattr(m, 'getpass', secret_input)
+    assert m.login(m.SessionStore(tmp_path), show_codes=show_codes) == 'saved'
+    assert visible == (['Perplexity email: ', 'Email verification code: ', 'Authenticator TOTP: ']
+                       if show_codes else ['Perplexity email: '])
+    assert hidden == ([] if show_codes else ['Email verification code (hidden): ', 'Authenticator TOTP (hidden): '])
+    assert 'SECRET' not in ''.join(capfd.readouterr())
+
+
+def test_explicit_show_codes_uses_visible_terminal_prompts(monkeypatch, tmp_path, capfd):
+    m = auth_module()
+    from perplexity_web_mcp import auth
+    network = AuthNetwork()
+    monkeypatch.setattr(auth, 'Session', lambda **kw: network)
+    labels = []
+    answers = iter(['fixture@example.invalid', '123456'])
+    def visible(label):
+        labels.append(label)
+        return next(answers)
+    def hidden(label):
+        raise AssertionError('explicit visible-code mode used the hidden prompt')
+    monkeypatch.setattr(m, 'visible_prompt', visible, raising=False)
+    monkeypatch.setattr(m, 'getpass', hidden)
+    assert m.login(m.SessionStore(tmp_path), show_codes=True) == 'saved'
+    assert labels == ['Perplexity email: ', 'Email verification code: ']
+    assert 'SECRET' not in ''.join(capfd.readouterr())
+
+
+def test_worker_main_accepts_explicit_show_codes_option(monkeypatch, tmp_path, capfd):
+    import sys
+    from types import SimpleNamespace
+    m = auth_module()
+    calls = []
+    monkeypatch.setenv('HERMES_HOME', str(tmp_path))
+    monkeypatch.setattr(sys, 'argv', ['auth_worker.py', 'login', '--show-codes'])
+    monkeypatch.setattr(sys, 'stdin', SimpleNamespace(isatty=lambda: True))
+    def login(store, **kwargs):
+        calls.append(kwargs)
+        return 'saved'
+    monkeypatch.setattr(m, 'login', login)
+    m.main()
+    assert calls == [{'show_codes': True}]
+    assert capfd.readouterr().out == 'saved\n'
+
+
+@pytest.mark.parametrize('show_codes', [False, True])
+def test_real_terminal_echoes_email_and_only_opted_in_codes(tmp_path, show_codes):
+    import errno
+    import pty
+    import select
+    import subprocess
+    import sys
+    import time
+    master, slave = pty.openpty()
+    script = ('import sys, fcntl, termios\n'
+              'fcntl.ioctl(0, termios.TIOCSCTTY, 0)\n'
+              'sys.path.insert(0, ' + repr(str(PLUGIN)) + ')\n'
+              'import auth_worker as m\n'
+              'm.visible_prompt("Perplexity email: ")\n'
+              + ('m.visible_prompt' if show_codes else 'm.hidden_prompt')
+              + '("Fixture code: ")\nprint("DONE")\n')
+    process = subprocess.Popen([sys.executable, '-c', script], stdin=slave,
+                               stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                               start_new_session=True)
+    os.close(slave)
+    terminal = bytearray()
+    def until(marker):
+        deadline = time.monotonic() + 5
+        while marker not in terminal:
+            if time.monotonic() >= deadline:
+                pytest.fail('terminal prompt deadline expired')
+            readable, _, _ = select.select([master], [], [], 0.1)
+            if readable:
+                chunk = os.read(master, 4096)
+                assert chunk, 'terminal closed before prompt'
+                terminal.extend(chunk)
+    try:
+        until(b'Perplexity email: ')
+        os.write(master, b'fixture@example.invalid\n')
+        until(b'Fixture code: ')
+        os.write(master, b'123456\n')
+        stdout, stderr = process.communicate(timeout=5)
+        while select.select([master], [], [], 0)[0]:
+            try:
+                chunk = os.read(master, 4096)
+            except OSError as exc:
+                if exc.errno == errno.EIO:
+                    break
+                raise
+            if not chunk:
+                break
+            terminal.extend(chunk)
+        assert process.returncode == 0, stderr.decode()
+        assert stdout.strip() == b'DONE' and stderr == b''
+        assert b'fixture@example.invalid' in terminal
+        assert (b'123456' in terminal) is show_codes
+        assert b'fixture@example.invalid' not in stdout + stderr
+        assert b'123456' not in stdout + stderr
+    finally:
+        if process.poll() is None:
+            process.kill()
+        process.wait(timeout=5)
+        os.close(master)
+
+
 def test_hidden_prompt_refuses_getpass_echo_fallback(monkeypatch):
     import getpass
     import warnings
